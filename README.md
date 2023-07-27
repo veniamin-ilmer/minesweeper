@@ -17,3 +17,6 @@ Missing Features:
 * Right clicking detection is not available in Iced, so you can't flag a bomb.
 * Double clicking detection is not available in Iced, so you can't reveal neighboring cells this way.
 * Clock or mine counter
+
+Bugs:
+* If you click and drag, sometimes two buttons could end up being clicked instead of one. This is some kind of bug with Iced.
