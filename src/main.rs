@@ -1,39 +1,52 @@
 use iced::widget::{button, Column, Row, text};
-use iced::{alignment::Horizontal, Element, Sandbox, Settings};
+use iced::{alignment::Horizontal, Alignment, Element, Sandbox, Settings};
 
-const CELL_COLUMNS: usize = 16;
 const CELL_ROWS: usize = 16;
+const CELL_COLUMNS: usize = 16;
 const MINE_COUNT: usize = 40;
 
 pub fn main() -> iced::Result {
   let settings = Settings {
-    window: iced::window::Settings { size: (20 * CELL_ROWS as u32, 20 * CELL_COLUMNS as u32), ..Default::default() },
+    window: iced::window::Settings { size: (20 * CELL_COLUMNS as u32, 30 + 20 * CELL_ROWS as u32), ..Default::default() },
     ..Default::default()
   };
-  Minesweeper::run(settings)
+  Game::run(settings)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum CellValue {
+  Mined,
+  Number(u8),
+}
+
+#[derive(Debug, PartialEq)]
+enum GameStatus {
+  Playing,
+  Lost,
+  Won,
 }
 
 #[derive(Debug, Clone, Copy)]
 struct Cell {
   revealed: bool,
-  mined: bool,
-  number: u8,
+  value: CellValue,
 }
 
-struct Minesweeper {
-  board: [[Cell; CELL_COLUMNS]; CELL_COLUMNS],
+struct Game {
+  board: [[Cell; CELL_ROWS]; CELL_COLUMNS],
+  status: GameStatus,
+  revealed_count: usize
 }
 
-impl Minesweeper {
+impl Game {
   fn add_mines(&mut self) {
     use rand::seq::SliceRandom;
-    
     let mut rng = rand::thread_rng();
     
     // Create a Vec of all possible positions.
     let mut positions = Vec::new();
-    for y in 0..CELL_COLUMNS {
-      for x in 0..CELL_ROWS {
+    for y in 0..CELL_ROWS {
+      for x in 0..CELL_COLUMNS {
         positions.push((x, y));
       }
     }
@@ -43,35 +56,35 @@ impl Minesweeper {
     
     // Mine some positions.
     for &(x, y) in positions.iter().take(MINE_COUNT) {
-      self.board[x][y].mined = true;
+      self.board[x][y].value = CellValue::Mined;
     }
   }
 
   fn add_numbers(&mut self) {
-    for y in 0..CELL_COLUMNS {
+    for y in 0..CELL_ROWS {
       let first_y = y == 0;
-      let last_y = y == CELL_COLUMNS - 1;
+      let last_y = y == CELL_ROWS - 1;
       
-      for x in 0..CELL_ROWS {
+      for x in 0..CELL_COLUMNS {
         let first_x = x == 0;
-        let last_x = x == CELL_ROWS - 1;
+        let last_x = x == CELL_COLUMNS - 1;
         
-        if self.board[x][y].mined {
+        if self.board[x][y].value == CellValue::Mined {
           continue;
         }
         
         //Count up all bombs at sides and corners
         let mut count = 0;
-        if !first_x && !first_y && self.board[x - 1][y - 1].mined { count += 1 }
-        if !first_x && self.board[x - 1][y].mined { count += 1 }
-        if !first_y && self.board[x][y - 1].mined { count += 1 }
-        if !last_x && !last_y && self.board[x + 1][y + 1].mined { count += 1 }
-        if !last_x && self.board[x + 1][y].mined { count += 1 }
-        if !last_y && self.board[x][y + 1].mined { count += 1 }
-        if !first_x && !last_y && self.board[x - 1][y + 1].mined { count += 1 }
-        if !last_x && !first_y && self.board[x + 1][y - 1].mined { count += 1 }
+        if !first_x && !first_y && self.board[x - 1][y - 1].value == CellValue::Mined { count += 1 }
+        if !first_x && self.board[x - 1][y].value == CellValue::Mined { count += 1 }
+        if !first_y && self.board[x][y - 1].value == CellValue::Mined { count += 1 }
+        if !last_x && !last_y && self.board[x + 1][y + 1].value == CellValue::Mined { count += 1 }
+        if !last_x && self.board[x + 1][y].value == CellValue::Mined { count += 1 }
+        if !last_y && self.board[x][y + 1].value == CellValue::Mined { count += 1 }
+        if !first_x && !last_y && self.board[x - 1][y + 1].value == CellValue::Mined { count += 1 }
+        if !last_x && !first_y && self.board[x + 1][y - 1].value == CellValue::Mined { count += 1 }
         
-        self.board[x][y].number = count;
+        self.board[x][y].value = CellValue::Number(count);
       }
     }
   }
@@ -79,14 +92,19 @@ impl Minesweeper {
 
 #[derive(Debug, Clone, Copy)]
 enum Message {
+  NewGame,
   Position(usize, usize)
 }
 
-impl Sandbox for Minesweeper {
+impl Sandbox for Game {
   type Message = Message;
 
   fn new() -> Self {
-    let mut game = Minesweeper { board: [[Cell {revealed: false, mined: false, number: 0}; CELL_ROWS]; CELL_COLUMNS] };
+    let mut game = Game {
+      board: [[Cell {revealed: false, value: CellValue::Number(0)}; CELL_ROWS]; CELL_COLUMNS],
+      status: GameStatus::Playing,
+      revealed_count: 0,
+    };
     game.add_mines();
     game.add_numbers();
     
@@ -94,28 +112,48 @@ impl Sandbox for Minesweeper {
   }
 
   fn title(&self) -> String {
-    String::from("Minesweeper")
+    match self.status {
+      GameStatus::Playing => String::from("Minesweeper"),
+      GameStatus::Won => String::from("Minesweeper - You Won"),
+      GameStatus::Lost => String::from("Minesweeper - You Lost"),
+    }
   }
 
   fn update(&mut self, message: Message) {
     match message {
+      Message::NewGame => {
+        *self = Game::new()
+      },
       Message::Position(x, y) => {
+        if self.status != GameStatus::Playing {
+          return;
+        }
+        
         //This is already revealed. No need to do anything here.
         if self.board[x][y].revealed {
           return;
         }
         
         self.board[x][y].revealed = true;
-        if self.board[x][y].mined {
+        
+        if self.board[x][y].value == CellValue::Mined {
+          self.status = GameStatus::Lost;
+          return;
+        }
+
+        self.revealed_count += 1;
+        if self.revealed_count >= CELL_ROWS * CELL_COLUMNS - MINE_COUNT {
+          //All numbers were revealed
+          self.status = GameStatus::Won;
           return;
         }
         
         //Clicked on a blank piece? Reveal all sides and corners.
-        if self.board[x][y].number == 0 {
+        if self.board[x][y].value == CellValue::Number(0) {
           let first_y = y == 0;
-          let last_y = y == CELL_COLUMNS - 1;
+          let last_y = y == CELL_ROWS - 1;
           let first_x = x == 0;
-          let last_x = x == CELL_ROWS - 1;
+          let last_x = x == CELL_COLUMNS - 1;
           
           if !first_x && !first_y { self.update(Message::Position(x - 1, y - 1)); }
           if !first_x { self.update(Message::Position(x - 1, y)); }
@@ -132,14 +170,23 @@ impl Sandbox for Minesweeper {
 
   fn view(&self) -> Element<Message> {
     let mut column = Column::new();
-    for y in 0..CELL_COLUMNS {
+    column = column.push(button("New Game").height(30).on_press(Message::NewGame)).align_items(Alignment::Center);
+    for y in 0..CELL_ROWS {
       let mut row = Row::new();
-      for x in 0..CELL_ROWS {
+      for x in 0..CELL_COLUMNS {
         let cell: Element<_> = match self.board[x][y] {
-          Cell {revealed: false, .. } => button("").width(20).height(20).on_press(Message::Position(x, y)).into(),
-          Cell {revealed: true, mined: true, .. } => text("*").width(20).height(20).horizontal_alignment(Horizontal::Center).into(),
-          Cell {revealed: true, mined: false, number: 0 } => text("").width(20).height(20).into(),
-          Cell {revealed: true, mined: false, number } => text(number.to_string()).width(20).height(20).horizontal_alignment(Horizontal::Center).into(),
+          Cell {revealed: false, .. } => {
+            if self.status == GameStatus::Playing {
+              button("").width(20).height(20).on_press(Message::Position(x, y)).into()                
+            } else if self.status == GameStatus::Lost && self.board[x][y].value == CellValue::Mined {
+              button(text("*").size(34).width(20).height(20).horizontal_alignment(Horizontal::Center)).width(20).height(20).padding(0).into()
+            } else {
+              button("").width(20).height(20).into()  //Removing on_press disables the buttons
+            }
+          },
+          Cell {revealed: true, value: CellValue::Mined} => text("*").size(34).width(20).height(20).horizontal_alignment(Horizontal::Center).into(),
+          Cell {revealed: true, value: CellValue::Number(0)} => text("").width(20).height(20).into(),
+          Cell {revealed: true, value: CellValue::Number(number)} => text(number.to_string()).width(20).height(20).horizontal_alignment(Horizontal::Center).into(),
         };
         row = row.push(cell);
       }
