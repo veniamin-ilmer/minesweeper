@@ -96,10 +96,6 @@ impl Game {
       let x = cell.0;
       let y = cell.1;
     
-      //This is already revealed. No need to do anything here.
-      if self.board[x][y].revealed {
-        continue;
-      }
       self.board[x][y].revealed = true;
 
       self.revealed_count += 1;
