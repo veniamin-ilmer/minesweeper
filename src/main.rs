@@ -119,14 +119,14 @@ impl Game {
         let first_x = x == 0;
         let last_x = x == CELL_COLUMNS - 1;
         
-        if !first_x && !first_y { reveal_set.insert((x - 1, y - 1)); }
-        if !first_x { reveal_set.insert((x - 1, y)); }
-        if !first_y { reveal_set.insert((x, y - 1)); }
-        if !last_x && !last_y { reveal_set.insert((x + 1, y + 1)); }
-        if !last_x { reveal_set.insert((x + 1, y)); }
-        if !last_y { reveal_set.insert((x, y + 1)); }
-        if !first_x && !last_y { reveal_set.insert((x - 1, y + 1)); }
-        if !last_x && !first_y { reveal_set.insert((x + 1, y - 1)); }
+        if !first_x && !first_y && !self.board[x - 1][y - 1].revealed { reveal_set.insert((x - 1, y - 1)); }
+        if !first_x && !self.board[x - 1][y].revealed { reveal_set.insert((x - 1, y)); }
+        if !first_y && !self.board[x][y - 1].revealed { reveal_set.insert((x, y - 1)); }
+        if !last_x && !last_y && !self.board[x + 1][y + 1].revealed { reveal_set.insert((x + 1, y + 1)); }
+        if !last_x && !self.board[x + 1][y].revealed { reveal_set.insert((x + 1, y)); }
+        if !last_y && !self.board[x][y + 1].revealed { reveal_set.insert((x, y + 1)); }
+        if !first_x && !last_y && !self.board[x - 1][y + 1].revealed { reveal_set.insert((x - 1, y + 1)); }
+        if !last_x && !first_y && !self.board[x + 1][y - 1].revealed { reveal_set.insert((x + 1, y - 1)); }
       }
     }
   }
