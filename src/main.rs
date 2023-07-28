@@ -2,8 +2,8 @@ use iced::widget::{button, Column, Row, text};
 use iced::{alignment::Horizontal, Alignment, Element, Sandbox, Settings};
 
 const CELL_ROWS: usize = 16;
-const CELL_COLUMNS: usize = 16;
-const MINE_COUNT: usize = 40;
+const CELL_COLUMNS: usize = 30;
+const MINE_COUNT: usize = 99;
 
 pub fn main() -> iced::Result {
   let settings = Settings {
@@ -88,6 +88,48 @@ impl Game {
       }
     }
   }
+  
+  fn reveal_multiple(&mut self, x: usize, y: usize) {
+    let mut reveal_set = std::collections::HashSet::new();
+    
+    reveal_set.insert((x, y));
+    
+    while let Some(cell) = reveal_set.iter().next().map(|cell| cell.to_owned()) {
+      let x = cell.0;
+      let y = cell.1;
+      reveal_set.remove(&cell);
+    
+      //This is already revealed. No need to do anything here.
+      if self.board[x][y].revealed {
+        continue;
+      }
+      self.board[x][y].revealed = true;
+
+      self.revealed_count += 1;
+      if self.revealed_count >= CELL_ROWS * CELL_COLUMNS - MINE_COUNT {
+        //All numbers were revealed
+        self.status = GameStatus::Won;
+        return;
+      }
+      
+      //Clicked on a blank piece? Reveal all sides and corners.
+      if self.board[x][y].value == CellValue::Number(0) {
+        let first_y = y == 0;
+        let last_y = y == CELL_ROWS - 1;
+        let first_x = x == 0;
+        let last_x = x == CELL_COLUMNS - 1;
+        
+        if !first_x && !first_y { reveal_set.insert((x - 1, y - 1)); }
+        if !first_x { reveal_set.insert((x - 1, y)); }
+        if !first_y { reveal_set.insert((x, y - 1)); }
+        if !last_x && !last_y { reveal_set.insert((x + 1, y + 1)); }
+        if !last_x { reveal_set.insert((x + 1, y)); }
+        if !last_y { reveal_set.insert((x, y + 1)); }
+        if !first_x && !last_y { reveal_set.insert((x - 1, y + 1)); }
+        if !last_x && !first_y { reveal_set.insert((x + 1, y - 1)); }
+      }
+    }
+  }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -128,42 +170,14 @@ impl Sandbox for Game {
         if self.status != GameStatus::Playing {
           return;
         }
-        
-        //This is already revealed. No need to do anything here.
-        if self.board[x][y].revealed {
-          return;
-        }
-        
-        self.board[x][y].revealed = true;
-        
+    
         if self.board[x][y].value == CellValue::Mined {
+          self.board[x][y].revealed = true;
           self.status = GameStatus::Lost;
           return;
         }
-
-        self.revealed_count += 1;
-        if self.revealed_count >= CELL_ROWS * CELL_COLUMNS - MINE_COUNT {
-          //All numbers were revealed
-          self.status = GameStatus::Won;
-          return;
-        }
         
-        //Clicked on a blank piece? Reveal all sides and corners.
-        if self.board[x][y].value == CellValue::Number(0) {
-          let first_y = y == 0;
-          let last_y = y == CELL_ROWS - 1;
-          let first_x = x == 0;
-          let last_x = x == CELL_COLUMNS - 1;
-          
-          if !first_x && !first_y { self.update(Message::Position(x - 1, y - 1)); }
-          if !first_x { self.update(Message::Position(x - 1, y)); }
-          if !first_y { self.update(Message::Position(x, y - 1)); }
-          if !last_x && !last_y { self.update(Message::Position(x + 1, y + 1)); }
-          if !last_x { self.update(Message::Position(x + 1, y)); }
-          if !last_y { self.update(Message::Position(x, y + 1)); }
-          if !first_x && !last_y { self.update(Message::Position(x - 1, y + 1)); }
-          if !last_x && !first_y { self.update(Message::Position(x + 1, y - 1)); }
-        }
+        self.reveal_multiple(x, y);
       }
     }
   }
