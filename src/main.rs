@@ -19,20 +19,20 @@ pub fn main() -> iced::Result {
   Game::run(settings)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 enum CellValue {
   Mined,
   Number(u8),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 enum GameStatus {
   Playing,
   Lost,
   Won,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 struct Cell {
   revealed: bool,
   value: CellValue,
@@ -90,14 +90,11 @@ impl Game {
   }
   
   fn reveal_multiple(&mut self, x: usize, y: usize) {
-    let mut reveal_set = std::collections::HashSet::new();
+    let mut reveal_vec = vec![(x, y)];
     
-    reveal_set.insert((x, y));
-    
-    while let Some(cell) = reveal_set.iter().next().map(|cell| cell.to_owned()) {
+    while let Some(cell) = reveal_vec.pop() {
       let x = cell.0;
       let y = cell.1;
-      reveal_set.remove(&cell);
     
       //This is already revealed. No need to do anything here.
       if self.board[x][y].revealed {
@@ -119,9 +116,8 @@ impl Game {
           let new_y = (y as isize + offset.1) as usize;
           //By converting it to usize, if the number equals -1, it will wrap around to be a really high number, which will not be counted below.
 
-          
           if new_x < CELL_COLUMNS && new_y < CELL_ROWS && !self.board[new_x][new_y].revealed {
-            reveal_set.insert((new_x, new_y));
+            reveal_vec.push((new_x, new_y));
           }
         }
       }
