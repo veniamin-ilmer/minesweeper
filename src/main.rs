@@ -5,6 +5,12 @@ const CELL_ROWS: usize = 16;
 const CELL_COLUMNS: usize = 30;
 const MINE_COUNT: usize = 99;
 
+const SURROUNDING_CELLS: [(isize, isize); 8] = [
+    (-1, -1), (0, -1), (1, -1),
+    (-1,  0),          (1,  0),
+    (-1,  1), (0,  1), (1,  1)
+];
+
 pub fn main() -> iced::Result {
   let settings = Settings {
     window: iced::window::Settings { size: (20 * CELL_COLUMNS as u32, 30 + 20 * CELL_ROWS as u32), ..Default::default() },
@@ -59,31 +65,25 @@ impl Game {
       self.board[x][y].value = CellValue::Mined;
     }
   }
-
+  
   fn add_numbers(&mut self) {
     for y in 0..CELL_ROWS {
-      let first_y = y == 0;
-      let last_y = y == CELL_ROWS - 1;
-      
       for x in 0..CELL_COLUMNS {
-        let first_x = x == 0;
-        let last_x = x == CELL_COLUMNS - 1;
-        
         if self.board[x][y].value == CellValue::Mined {
           continue;
         }
-        
         //Count up all bombs at sides and corners
         let mut count = 0;
-        if !first_x && !first_y && self.board[x - 1][y - 1].value == CellValue::Mined { count += 1 }
-        if !first_x && self.board[x - 1][y].value == CellValue::Mined { count += 1 }
-        if !first_y && self.board[x][y - 1].value == CellValue::Mined { count += 1 }
-        if !last_x && !last_y && self.board[x + 1][y + 1].value == CellValue::Mined { count += 1 }
-        if !last_x && self.board[x + 1][y].value == CellValue::Mined { count += 1 }
-        if !last_y && self.board[x][y + 1].value == CellValue::Mined { count += 1 }
-        if !first_x && !last_y && self.board[x - 1][y + 1].value == CellValue::Mined { count += 1 }
-        if !last_x && !first_y && self.board[x + 1][y - 1].value == CellValue::Mined { count += 1 }
-        
+        for offset in &SURROUNDING_CELLS {
+          let new_x = (x as isize + offset.0) as usize;
+          let new_y = (y as isize + offset.1) as usize;
+          //By converting it to usize, if the number equals -1, it will wrap around to be a really high number, which will not be counted below.
+          
+          if new_x < CELL_COLUMNS && new_y < CELL_ROWS
+          && self.board[new_x][new_y].value == CellValue::Mined {
+            count += 1;
+          }
+        }
         self.board[x][y].value = CellValue::Number(count);
       }
     }
@@ -114,19 +114,16 @@ impl Game {
       
       //Clicked on a blank piece? Reveal all sides and corners.
       if self.board[x][y].value == CellValue::Number(0) {
-        let first_y = y == 0;
-        let last_y = y == CELL_ROWS - 1;
-        let first_x = x == 0;
-        let last_x = x == CELL_COLUMNS - 1;
-        
-        if !first_x && !first_y && !self.board[x - 1][y - 1].revealed { reveal_set.insert((x - 1, y - 1)); }
-        if !first_x && !self.board[x - 1][y].revealed { reveal_set.insert((x - 1, y)); }
-        if !first_y && !self.board[x][y - 1].revealed { reveal_set.insert((x, y - 1)); }
-        if !last_x && !last_y && !self.board[x + 1][y + 1].revealed { reveal_set.insert((x + 1, y + 1)); }
-        if !last_x && !self.board[x + 1][y].revealed { reveal_set.insert((x + 1, y)); }
-        if !last_y && !self.board[x][y + 1].revealed { reveal_set.insert((x, y + 1)); }
-        if !first_x && !last_y && !self.board[x - 1][y + 1].revealed { reveal_set.insert((x - 1, y + 1)); }
-        if !last_x && !first_y && !self.board[x + 1][y - 1].revealed { reveal_set.insert((x + 1, y - 1)); }
+        for offset in SURROUNDING_CELLS.iter() {
+          let new_x = (x as isize + offset.0) as usize;
+          let new_y = (y as isize + offset.1) as usize;
+          //By converting it to usize, if the number equals -1, it will wrap around to be a really high number, which will not be counted below.
+
+          
+          if new_x < CELL_COLUMNS && new_y < CELL_ROWS && !self.board[new_x][new_y].revealed {
+            reveal_set.insert((new_x, new_y));
+          }
+        }
       }
     }
   }
