@@ -183,12 +183,12 @@ impl Sandbox for Game {
             if self.status == GameStatus::Playing {
               button("").width(20).height(20).on_press(Message::Position(x, y)).into()                
             } else if self.status == GameStatus::Lost && self.board[x][y].value == CellValue::Mined {
-              button(text("*").size(34).width(20).height(20).horizontal_alignment(Horizontal::Center)).width(20).height(20).padding(0).into()
+              button(text("*").size(24).width(20).height(20).horizontal_alignment(Horizontal::Center)).width(20).height(20).padding(0).into()
             } else {
               button("").width(20).height(20).into()  //Removing on_press disables the buttons
             }
           },
-          Cell {revealed: true, value: CellValue::Mined} => text("*").size(34).width(20).height(20).horizontal_alignment(Horizontal::Center).into(),
+          Cell {revealed: true, value: CellValue::Mined} => text("*").size(24).width(20).height(20).horizontal_alignment(Horizontal::Center).into(),
           Cell {revealed: true, value: CellValue::Number(0)} => text("").width(20).height(20).into(),
           Cell {revealed: true, value: CellValue::Number(number)} => text(number.to_string()).width(20).height(20).horizontal_alignment(Horizontal::Center).into(),
         };
