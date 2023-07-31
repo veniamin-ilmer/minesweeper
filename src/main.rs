@@ -7,7 +7,11 @@ const MINE_COUNT: usize = 99;
 
 pub fn main() -> iced::Result {
   let settings = Settings {
-    window: iced::window::Settings { size: (20 * CELL_COLUMNS as u32, 30 + 20 * CELL_ROWS as u32), ..Default::default() },
+    window: iced::window::Settings {
+      size: (20 * CELL_COLUMNS as u32, 30 + 20 * CELL_ROWS as u32),
+      resizable: false,
+      ..Default::default()
+    },
     ..Default::default()
   };
   Game::run(settings)
@@ -174,7 +178,7 @@ impl Sandbox for Game {
 
   fn view(&self) -> Element<Message> {
     let mut column = Column::new();
-    column = column.push(button("New Game").height(30).on_press(Message::NewGame)).align_items(Alignment::Center);
+    column = column.push(button(text(if self.status == GameStatus::Lost { "☹️" } else { "😀" }).shaping(text::Shaping::Advanced)).height(30).on_press(Message::NewGame)).align_items(Alignment::Center);
     for y in 0..CELL_ROWS {
       let mut row = Row::new();
       for x in 0..CELL_COLUMNS {
@@ -183,14 +187,14 @@ impl Sandbox for Game {
             if self.status == GameStatus::Playing {
               button("").width(20).height(20).on_press(Message::Position(x, y)).into()                
             } else if self.status == GameStatus::Lost && self.board[x][y].value == CellValue::Mined {
-              button(text("*").size(24).width(20).height(20).horizontal_alignment(Horizontal::Center)).width(20).height(20).padding(0).into()
+              button(text("💣").shaping(text::Shaping::Advanced).size(16)).width(20).height(20).padding(0).into()
             } else {
               button("").width(20).height(20).into()  //Removing on_press disables the buttons
             }
           },
-          Cell {revealed: true, value: CellValue::Mined} => text("*").size(24).width(20).height(20).horizontal_alignment(Horizontal::Center).into(),
+          Cell {revealed: true, value: CellValue::Mined} => text("💣").shaping(text::Shaping::Advanced).size(16).width(20).height(20).horizontal_alignment(Horizontal::Center).into(),
           Cell {revealed: true, value: CellValue::Number(0)} => text("").width(20).height(20).into(),
-          Cell {revealed: true, value: CellValue::Number(number)} => text(number.to_string()).width(20).height(20).horizontal_alignment(Horizontal::Center).into(),
+          Cell {revealed: true, value: CellValue::Number(number)} => text(number.to_string()).size(14).width(20).height(20).horizontal_alignment(Horizontal::Center).into(),
         };
         row = row.push(cell);
       }
