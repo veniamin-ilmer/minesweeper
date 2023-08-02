@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use iced::widget::{button, Column, Row, text};
 use iced::{alignment::Horizontal, Alignment, Element, Sandbox, Settings};
 
@@ -178,7 +180,9 @@ impl Sandbox for Game {
 
   fn view(&self) -> Element<Message> {
     let mut column = Column::new();
-    column = column.push(button(text(if self.status == GameStatus::Lost { "☹️" } else { "😀" }).shaping(text::Shaping::Advanced)).height(30).on_press(Message::NewGame)).align_items(Alignment::Center);
+    let face = if self.status == GameStatus::Lost { "☹️" } else { "😀" };
+    column = column.push(button(text(face).shaping(text::Shaping::Advanced)).height(28).on_press(Message::NewGame)).align_items(Alignment::Center);
+    column = column.push(text("").height(2)); //Add a small space
     for y in 0..CELL_ROWS {
       let mut row = Row::new();
       for x in 0..CELL_COLUMNS {
