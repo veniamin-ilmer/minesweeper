@@ -1,7 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use iced::widget::{button, Column, Row, text};
-use iced::{alignment::Horizontal, Alignment, Element, Sandbox, Settings};
+mod abutton;
+use abutton::Button;
+
+use iced::widget::{Column, Row, text, Space};
+use iced::{alignment::Horizontal, Element, Sandbox, Settings};
 
 const CELL_ROWS: usize = 16;
 const CELL_COLUMNS: usize = 30;
@@ -10,7 +13,7 @@ const MINE_COUNT: usize = 99;
 pub fn main() -> iced::Result {
   let settings = Settings {
     window: iced::window::Settings {
-      size: (20 * CELL_COLUMNS as u32, 30 + 20 * CELL_ROWS as u32),
+      size: (21 * CELL_COLUMNS as u32, 32 + 21 * CELL_ROWS as u32),
       resizable: false,
       ..Default::default()
     },
@@ -25,6 +28,19 @@ enum CellValue {
   Number(u8),
 }
 
+#[derive(Clone, Copy, PartialEq)]
+enum CellStatus {
+  Covered,
+  Revealed,
+  Flagged,
+}
+
+#[derive(Clone, Copy)]
+struct Cell {
+  status: CellStatus,
+  value: CellValue,
+}
+
 #[derive(PartialEq)]
 enum GameStatus {
   Playing,
@@ -32,16 +48,11 @@ enum GameStatus {
   Won,
 }
 
-#[derive(Clone, Copy)]
-struct Cell {
-  revealed: bool,
-  value: CellValue,
-}
-
 struct Game {
   board: [[Cell; CELL_ROWS]; CELL_COLUMNS],
   status: GameStatus,
-  revealed_count: usize
+  revealed_count: usize,
+  flag_count: usize,
 }
 
 fn with_surrounding_cells<F>(x: usize, y: usize, mut f: F) where F: FnMut(usize, usize) {
@@ -106,8 +117,13 @@ impl Game {
     while let Some(cell) = reveal_vec.pop() {
       let x = cell.0;
       let y = cell.1;
-    
-      self.board[x][y].revealed = true;
+
+      //We can't be revealing flagged cells...
+      if self.board[x][y].status == CellStatus::Flagged {
+        continue;
+      }
+
+      self.board[x][y].status = CellStatus::Revealed;
 
       self.revealed_count += 1;
       if self.revealed_count >= CELL_ROWS * CELL_COLUMNS - MINE_COUNT {
@@ -119,7 +135,7 @@ impl Game {
       //Clicked on a blank piece? Reveal all sides and corners.
       if self.board[x][y].value == CellValue::Number(0) {
         with_surrounding_cells(x, y, |new_x, new_y| {
-          if !self.board[new_x][new_y].revealed {
+          if self.board[new_x][new_y].status != CellStatus::Revealed {
             reveal_vec.push((new_x, new_y));
           }
         });
@@ -131,7 +147,8 @@ impl Game {
 #[derive(Debug, Clone, Copy)]
 enum Message {
   NewGame,
-  Position(usize, usize)
+  Reveal(usize, usize),
+  Flag(usize, usize),
 }
 
 impl Sandbox for Game {
@@ -139,9 +156,10 @@ impl Sandbox for Game {
 
   fn new() -> Self {
     let mut game = Game {
-      board: [[Cell {revealed: false, value: CellValue::Number(0)}; CELL_ROWS]; CELL_COLUMNS],
+      board: [[Cell {status: CellStatus::Covered, value: CellValue::Number(0)}; CELL_ROWS]; CELL_COLUMNS],
       status: GameStatus::Playing,
       revealed_count: 0,
+      flag_count: 0,
     };
     game.add_mines();
     game.add_numbers();
@@ -162,43 +180,65 @@ impl Sandbox for Game {
       Message::NewGame => {
         *self = Game::new()
       },
-      Message::Position(x, y) => {
-        if self.status != GameStatus::Playing {
+      Message::Reveal(x, y) => {
+        if self.status != GameStatus::Playing || self.board[x][y].status != CellStatus::Covered {
           return;
         }
-    
+
         if self.board[x][y].value == CellValue::Mined {
-          self.board[x][y].revealed = true;
+          self.board[x][y].status = CellStatus::Revealed;
           self.status = GameStatus::Lost;
           return;
         }
         
         self.reveal_multiple(x, y);
-      }
+      },
+      Message::Flag(x, y) => {
+        if self.status != GameStatus::Playing {
+          return;
+        }
+        
+        match self.board[x][y].status {
+          CellStatus::Covered => {
+            self.board[x][y].status = CellStatus::Flagged;
+            self.flag_count += 1;
+          },
+          CellStatus::Flagged => {
+            self.board[x][y].status = CellStatus::Covered;
+            self.flag_count -= 1;
+          },
+          CellStatus::Revealed => (), //If it's already revealed, it can't be flagged.
+        };
+        
+      },
     }
   }
 
   fn view(&self) -> Element<Message> {
-    let mut column = Column::new();
+    let mut column = Column::new().spacing(1);
     let face = if self.status == GameStatus::Lost { "☹️" } else { "😀" };
-    column = column.push(button(text(face).shaping(text::Shaping::Advanced)).height(28).on_press(Message::NewGame)).align_items(Alignment::Center);
-    column = column.push(text("").height(2)); //Add a small space
+    let mut top_row = Row::new().padding(2);
+    top_row = top_row.push(Button::new(text(face).shaping(text::Shaping::Advanced)).height(28).on_press(Message::NewGame));
+    top_row = top_row.push(Space::with_width(iced::Length::Fill));
+    top_row = top_row.push(text(format!("Bombs left: {}", MINE_COUNT - self.flag_count)).size(20));
+    column = column.push(top_row);
     for y in 0..CELL_ROWS {
-      let mut row = Row::new();
+      let mut row = Row::new().spacing(1);
       for x in 0..CELL_COLUMNS {
         let cell: Element<_> = match self.board[x][y] {
-          Cell {revealed: false, .. } => {
+          Cell {status: CellStatus::Flagged, .. } => Button::new(text("🚩").shaping(text::Shaping::Advanced).size(14)).on_right_click(Message::Flag(x, y)).width(20).height(20).padding(2).into(),
+          Cell {status: CellStatus::Covered, .. } => {
             if self.status == GameStatus::Playing {
-              button("").width(20).height(20).on_press(Message::Position(x, y)).into()                
+              Button::new("").width(20).height(20).on_press(Message::Reveal(x, y)).on_right_click(Message::Flag(x, y)).into()                
             } else if self.status == GameStatus::Lost && self.board[x][y].value == CellValue::Mined {
-              button(text("💣").shaping(text::Shaping::Advanced).size(16)).width(20).height(20).padding(0).into()
+              Button::new(text("💣").shaping(text::Shaping::Advanced).size(16)).width(20).height(20).padding(0).into()
             } else {
-              button("").width(20).height(20).into()  //Removing on_press disables the buttons
+              Button::new("").width(20).height(20).into()  //Removing on_press disables the buttons
             }
           },
-          Cell {revealed: true, value: CellValue::Mined} => text("💣").shaping(text::Shaping::Advanced).size(16).width(20).height(20).horizontal_alignment(Horizontal::Center).into(),
-          Cell {revealed: true, value: CellValue::Number(0)} => text("").width(20).height(20).into(),
-          Cell {revealed: true, value: CellValue::Number(number)} => text(number.to_string()).size(14).width(20).height(20).horizontal_alignment(Horizontal::Center).into(),
+          Cell {status: CellStatus::Revealed, value: CellValue::Mined} => text("💣").shaping(text::Shaping::Advanced).size(16).width(20).height(20).horizontal_alignment(Horizontal::Center).into(),
+          Cell {status: CellStatus::Revealed, value: CellValue::Number(0)} => text("").width(20).height(20).into(),
+          Cell {status: CellStatus::Revealed, value: CellValue::Number(number)} => text(number.to_string()).size(14).width(20).height(20).horizontal_alignment(Horizontal::Center).into(),
         };
         row = row.push(cell);
       }
