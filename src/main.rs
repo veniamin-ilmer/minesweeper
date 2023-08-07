@@ -144,6 +144,20 @@ impl Game {
   }
 }
 
+fn text_color(number: u8) -> iced::Color {
+  match number {
+    1 => iced::Color::new(0.0, 0.0, 1.0, 0.0),  //Blue
+    2 => iced::Color::new(0.0, 0.5, 0.0, 0.0),  //Green
+    3 => iced::Color::new(1.0, 0.0, 0.0, 0.0),  //Red
+    4 => iced::Color::new(0.0, 0.0, 0.5, 0.0),  //Dark blue
+    5 => iced::Color::new(0.5, 0.0, 0.0, 0.0),  //Dark red
+    6 => iced::Color::new(0.0, 0.5, 0.5, 0.0),  //Cyan
+    7 => iced::Color::new(0.0, 0.0, 0.0, 0.0),  //Black
+    8 => iced::Color::new(0.5, 0.5, 0.5, 0.0),  //Grey
+    _ => iced::Color::new(1.0, 1.0, 1.0, 0.0),  //White
+  }
+}
+
 #[derive(Debug, Clone, Copy)]
 enum Message {
   NewGame,
@@ -238,7 +252,7 @@ impl Sandbox for Game {
           },
           Cell {status: CellStatus::Revealed, value: CellValue::Mined} => text("💣").shaping(text::Shaping::Advanced).size(16).width(20).height(20).horizontal_alignment(Horizontal::Center).into(),
           Cell {status: CellStatus::Revealed, value: CellValue::Number(0)} => text("").width(20).height(20).into(),
-          Cell {status: CellStatus::Revealed, value: CellValue::Number(number)} => text(number.to_string()).size(14).width(20).height(20).horizontal_alignment(Horizontal::Center).into(),
+          Cell {status: CellStatus::Revealed, value: CellValue::Number(number)} => text(number.to_string()).style(text_color(number)).font(iced::Font::MONOSPACE).size(20).width(20).height(20).horizontal_alignment(Horizontal::Center).into(),
         };
         row = row.push(cell);
       }
