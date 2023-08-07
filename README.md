@@ -11,12 +11,9 @@ Features:
 * Randomly places mines, and writes numbers accordingly.
 * Clicking a blank space recusively opens up the sides and corners.
 * Detects if you won or lost the game, lets you restart the game.
+* Right clicking a cell flagged a bomb. There is a bomb counter.
 
 Missing Features:
 
-* Right clicking detection is not available in Iced, so you can't flag a bomb.
-* Double clicking detection is not available in Iced, so you can't reveal neighboring cells this way.
-* Clock or mine counter
-
-Bugs:
-* If you click and drag, sometimes two buttons could end up being clicked instead of one. This is some kind of bug with Iced.
+* No double clicking detection, so you can't reveal neighboring cells this way.
+* No clock
