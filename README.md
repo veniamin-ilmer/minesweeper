@@ -1,6 +1,8 @@
 # minesweeper
 
-Experimental Minesweeper game built with Iced
+Cross-compatible GUI Minesweeper game built with Iced
+
+![Screenshot](screenshot.png)
 
 Run with:
 
