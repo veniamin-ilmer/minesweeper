@@ -3,7 +3,7 @@
 mod abutton;
 use abutton::Button;
 
-use iced::widget::{Column, Row, text, Space};
+use iced::widget::{Column, Row, Space};
 use iced::{alignment::Horizontal, Element, Sandbox, Settings};
 
 const CELL_ROWS: usize = 16;
@@ -158,7 +158,15 @@ fn text_color(number: u8) -> iced::Color {
   }
 }
 
-#[derive(Debug, Clone, Copy)]
+fn button<Message>(text: &str, text_size: u16) -> Button<Message> {
+  Button::new(iced::widget::Text::new(text).shaping(iced::widget::text::Shaping::Advanced).size(text_size)).width(20).height(20)
+}
+
+fn text<'a>(text: impl Into<std::borrow::Cow<'a, str>>) -> iced::widget::Text<'a> {
+  iced::widget::Text::new(text).shaping(iced::widget::text::Shaping::Advanced).size(16).width(20).height(20).horizontal_alignment(Horizontal::Center)
+}
+
+#[derive(Clone, Copy, Debug)]
 enum Message {
   NewGame,
   Reveal(usize, usize),
@@ -214,6 +222,10 @@ impl Sandbox for Game {
         
         match self.board[x][y].status {
           CellStatus::Covered => {
+            if MINE_COUNT == self.flag_count {
+              //Too many flags! Don't add an extra flag. (Else MNE_COUNT - self.flag_count < 0, which will cause an exception because they are unsigned.)
+              return;
+            }
             self.board[x][y].status = CellStatus::Flagged;
             self.flag_count += 1;
           },
@@ -232,27 +244,27 @@ impl Sandbox for Game {
     let mut column = Column::new().spacing(1);
     let face = if self.status == GameStatus::Lost { "☹️" } else { "😀" };
     let mut top_row = Row::new().padding(2);
-    top_row = top_row.push(Button::new(text(face).shaping(text::Shaping::Advanced)).height(28).on_press(Message::NewGame));
+    top_row = top_row.push(Button::new(text(face).size(18)).height(28).on_press(Message::NewGame));
     top_row = top_row.push(Space::with_width(iced::Length::Fill));
-    top_row = top_row.push(text(format!("Bombs left: {}", MINE_COUNT - self.flag_count)).size(20));
+    top_row = top_row.push(iced::widget::Text::new(format!("Bombs left: {}", MINE_COUNT - self.flag_count)).size(20));
     column = column.push(top_row);
     for y in 0..CELL_ROWS {
       let mut row = Row::new().spacing(1);
       for x in 0..CELL_COLUMNS {
         let cell: Element<_> = match self.board[x][y] {
-          Cell {status: CellStatus::Flagged, .. } => Button::new(text("🚩").shaping(text::Shaping::Advanced).size(14)).on_right_click(Message::Flag(x, y)).width(20).height(20).padding(2).into(),
+          Cell {status: CellStatus::Flagged, .. } => button("🚩", 14).on_right_click(Message::Flag(x, y)).padding(2).into(),
           Cell {status: CellStatus::Covered, .. } => {
             if self.status == GameStatus::Playing {
-              Button::new("").width(20).height(20).on_press(Message::Reveal(x, y)).on_right_click(Message::Flag(x, y)).into()                
+              button("", 16).on_press(Message::Reveal(x, y)).on_right_click(Message::Flag(x, y)).into()                
             } else if self.status == GameStatus::Lost && self.board[x][y].value == CellValue::Mined {
-              Button::new(text("💣").shaping(text::Shaping::Advanced).size(16)).width(20).height(20).padding(0).into()
+              button("💣", 16).padding(0).into()
             } else {
-              Button::new("").width(20).height(20).into()  //Removing on_press disables the buttons
+              button("", 16).into()  //Removing on_press disables the buttons
             }
           },
-          Cell {status: CellStatus::Revealed, value: CellValue::Mined} => text("💣").shaping(text::Shaping::Advanced).size(16).width(20).height(20).horizontal_alignment(Horizontal::Center).into(),
-          Cell {status: CellStatus::Revealed, value: CellValue::Number(0)} => text("").width(20).height(20).into(),
-          Cell {status: CellStatus::Revealed, value: CellValue::Number(number)} => text(number.to_string()).style(text_color(number)).font(iced::Font::MONOSPACE).size(20).width(20).height(20).horizontal_alignment(Horizontal::Center).into(),
+          Cell {status: CellStatus::Revealed, value: CellValue::Mined} => text("💣").into(),
+          Cell {status: CellStatus::Revealed, value: CellValue::Number(0)} => text("").into(),
+          Cell {status: CellStatus::Revealed, value: CellValue::Number(number)} => text(number.to_string()).size(20).style(text_color(number)).font(iced::Font::MONOSPACE).into(),
         };
         row = row.push(cell);
       }

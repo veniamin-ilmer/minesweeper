@@ -288,11 +288,9 @@ pub fn update<'a, Message: Clone>(
     match event {
         Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
         | Event::Touch(touch::Event::FingerPressed { .. }) => {
-            if on_press.is_some() {
-                if cursor.is_over(layout.bounds()) {
-                    state().is_pressed = true;
-                    return event::Status::Captured;
-                }
+            if on_press.is_some() && cursor.is_over(layout.bounds()) {
+                state().is_pressed = true;
+                return event::Status::Captured;
             }
         },
         Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left))
@@ -309,11 +307,9 @@ pub fn update<'a, Message: Clone>(
             }
         },
         Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) => {
-            if on_right_click.is_some() {
-                if cursor.is_over(layout.bounds()) {
-                    state().is_right_clicked = true;
-                    return event::Status::Captured;
-                }
+            if on_right_click.is_some() && cursor.is_over(layout.bounds()) {
+                state().is_right_clicked = true;
+                return event::Status::Captured;
             }
         },
         Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Right)) => {
