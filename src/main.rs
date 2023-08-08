@@ -257,15 +257,20 @@ impl Sandbox for Game {
       let mut row = Row::new().spacing(1);
       for x in 0..CELL_COLUMNS {
         let cell: Element<_> = match self.board[x][y] {
-          Cell {status: CellStatus::Flagged, .. } => CellWidget::new("🚩").size(14).padding(2).on_right_click(Message::Flag(x, y)).into(),
+          Cell {status: CellStatus::Flagged, .. } => CellWidget {content: "🚩".to_string(), size: 14.0, padding: 2.into(), on_right_click: Some(Message::Flag(x, y)), ..Default::default()}.into(),
           Cell {status: CellStatus::Covered, .. } => match self.status {
             GameStatus::Playing | GameStatus::Pressing => {
-              CellWidget::new("").on_press(Message::Pressing(true)).on_release(Message::Pressing(false)).on_left_click(Message::Reveal(x, y)).on_right_click(Message::Flag(x, y)).into()                
+              CellWidget {
+                on_press: Some(Message::Pressing(true)),
+                on_release: Some(Message::Pressing(false)),
+                on_left_click: Some(Message::Reveal(x, y)),
+                on_right_click: Some(Message::Flag(x, y)),
+                ..Default::default()}.into()                
             },
             GameStatus::Won | GameStatus::Lost => if self.board[x][y].value == CellValue::Mined {
-              CellWidget::new("💣").into()
+              CellWidget {content: "💣".to_string(), ..Default::default()}.into()
             } else {
-              CellWidget::new("").into()  //Removing on_press disables the buttons
+              CellWidget {content: "".to_string(), ..Default::default()}.into()  //Removing on_press disables the buttons
             },
           },
           Cell {status: CellStatus::Revealed, value: CellValue::Mined} => text("💣").into(),

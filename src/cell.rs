@@ -9,102 +9,39 @@ use iced::advanced::renderer;
 use iced::advanced::widget::tree;
 use iced::widget::text;
 use iced::widget::button::{StyleSheet};
-use std::borrow;
 
-pub struct CellWidget<'a, Message, Renderer = iced::Renderer>
+pub struct CellWidget<Message, Renderer = iced::Renderer>
 where Renderer: iced::advanced::Renderer, Renderer::Theme: StyleSheet {
-  content: borrow::Cow<'a, str>,
-  size: f32,
-  on_left_click: Option<Message>,
-  on_right_click: Option<Message>,
-  on_press: Option<Message>,
-  on_release: Option<Message>,
-  width: iced::Length,
-  height: iced::Length,
-  padding: iced::Padding,
-  style: <Renderer::Theme as StyleSheet>::Style,
+  pub content: String,
+  pub size: f32,
+  pub width: iced::Length,
+  pub height: iced::Length,
+  pub padding: iced::Padding,
+  pub style: <Renderer::Theme as StyleSheet>::Style,
+  pub on_left_click: Option<Message>,
+  pub on_right_click: Option<Message>,
+  pub on_press: Option<Message>,
+  pub on_release: Option<Message>,
 }
 
-impl<'a, Message, Renderer> CellWidget<'a, Message, Renderer>
-where Renderer: iced::advanced::Renderer, Renderer::Theme: StyleSheet {
-  /// Creates a new [`CellWidget`] with the given content.
-  pub fn new(content: impl Into<borrow::Cow<'a, str>>) -> Self {
+impl Default for CellWidget<crate::Message, iced::Renderer> {
+  fn default() -> Self {
     CellWidget {
-      content: content.into(),
+      content: String::new(),
       size: 16.0,
-      on_left_click: None,
-      on_right_click: None,
-      on_press: None,
-      on_release: None,
       width: iced::Length::Fixed(20.0),
       height: iced::Length::Fixed(20.0),
-      padding: iced::Padding::new(0.0),
-      style: <Renderer::Theme as StyleSheet>::Style::default(),
+      padding: iced::Padding::ZERO,
+      style: Default::default(),
+      on_left_click: None, on_right_click: None, on_press: None, on_release: None,
     }
-  }
-
-  /// Sets the size of the [`Text`].
-  pub fn size(mut self, size: impl Into<iced::Pixels>) -> Self {
-    self.size = size.into().0;
-    self
-  }
-  
-  /// Sets the width of the [`CellWidget`].
-  pub fn width(mut self, width: impl Into<iced::Length>) -> Self {
-    self.width = width.into();
-    self
-  }
-
-  /// Sets the height of the [`CellWidget`].
-  pub fn height(mut self, height: impl Into<iced::Length>) -> Self {
-    self.height = height.into();
-    self
-  }
-
-  /// Sets the [`Padding`] of the [`CellWidget`].
-  pub fn padding<P: Into<iced::Padding>>(mut self, padding: P) -> Self {
-    self.padding = padding.into();
-    self
-  }
-
-  /// Sets the message that will be produced when the [`CellWidget`] is left clicked.
-  ///
-  /// Unless `on_left_click` is called, the [`CellWidget`] will be disabled.
-  pub fn on_left_click(mut self, on_left_click: Message) -> Self {
-    self.on_left_click = Some(on_left_click);
-    self
-  }
-
-  /// Sets the message that will be produced when the [`CellWidget`] is right clicked.
-  pub fn on_right_click(mut self, on_right_click: Message) -> Self {
-    self.on_right_click = Some(on_right_click);
-    self
-  }
-
-  /// Sets the message that will be produced when the [`CellWidget`] is pressed. (With any button)
-  pub fn on_press(mut self, on_press: Message) -> Self {
-    self.on_press = Some(on_press);
-    self
-  }
-
-  /// Sets the message that will be produced when the [`CellWidget`] is released. (With any button)
-  pub fn on_release(mut self, on_release: Message) -> Self {
-    self.on_release = Some(on_release);
-    self
-  }
-
-
-  /// Sets the style variant of this [`CellWidget`].
-  pub fn style(mut self, style: <Renderer::Theme as StyleSheet>::Style) -> Self {
-    self.style = style;
-    self
   }
 }
 
-impl<'a, Message, Renderer> iced::advanced::Widget<Message, Renderer> for CellWidget<'a, Message, Renderer>
+impl<Message, Renderer> iced::advanced::Widget<Message, Renderer> for CellWidget<Message, Renderer>
 where
-  Message: 'a + Clone,
-  Renderer: 'a + iced::advanced::text::Renderer,
+  Message: Clone,
+  Renderer: iced::advanced::text::Renderer,
   Renderer::Theme: StyleSheet,
 {
 
@@ -224,14 +161,14 @@ where
 
 }
 
-impl<'a, Message, Renderer> From<CellWidget<'a, Message, Renderer>>
+impl<'a, Message, Renderer> From<CellWidget<Message, Renderer>>
   for iced::Element<'a, Message, Renderer>
 where
   Message: Clone + 'a,
   Renderer: iced::advanced::text::Renderer + 'a,
   Renderer::Theme: StyleSheet,
 {
-  fn from(button: CellWidget<'a, Message, Renderer>) -> Self {
+  fn from(button: CellWidget<Message, Renderer>) -> Self {
     Self::new(button)
   }
 }
