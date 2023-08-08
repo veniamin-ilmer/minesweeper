@@ -44,6 +44,7 @@ struct Cell {
 #[derive(PartialEq)]
 enum GameStatus {
   Playing,
+  Pressing,
   Lost,
   Won,
 }
@@ -169,6 +170,7 @@ fn text<'a>(text: impl Into<std::borrow::Cow<'a, str>>) -> iced::widget::Text<'a
 #[derive(Clone, Copy, Debug)]
 enum Message {
   NewGame,
+  Pressing(bool),
   Reveal(usize, usize),
   Flag(usize, usize),
 }
@@ -191,17 +193,17 @@ impl Sandbox for Game {
 
   fn title(&self) -> String {
     match self.status {
-      GameStatus::Playing => String::from("Minesweeper"),
       GameStatus::Won => String::from("Minesweeper - You Won"),
       GameStatus::Lost => String::from("Minesweeper - You Lost"),
+      _ => String::from("Minesweeper"),
     }
   }
 
   fn update(&mut self, message: Message) {
     match message {
-      Message::NewGame => {
-        *self = Game::new()
-      },
+      Message::NewGame => *self = Game::new(),
+      Message::Pressing(true) => self.status = GameStatus::Pressing,
+      Message::Pressing(false) => self.status = GameStatus::Playing,
       Message::Reveal(x, y) => {
         if self.status != GameStatus::Playing || self.board[x][y].status != CellStatus::Covered {
           return;
@@ -242,25 +244,33 @@ impl Sandbox for Game {
 
   fn view(&self) -> Element<Message> {
     let mut column = Column::new().spacing(1);
-    let face = if self.status == GameStatus::Lost { "☹️" } else { "😀" };
+    let face = match self.status {
+      GameStatus::Playing => "😀",
+      GameStatus::Pressing => "😮",
+      GameStatus::Lost => "☹️",
+      GameStatus::Won => "😎",
+    };
     let mut top_row = Row::new().padding(2);
-    top_row = top_row.push(Button::new(text(face).size(18)).height(28).on_press(Message::NewGame));
+    top_row = top_row.push(iced::widget::Text::new(format!("Mines: {}", MINE_COUNT - self.flag_count)).size(20));
     top_row = top_row.push(Space::with_width(iced::Length::Fill));
-    top_row = top_row.push(iced::widget::Text::new(format!("Bombs left: {}", MINE_COUNT - self.flag_count)).size(20));
+    top_row = top_row.push(Button::new(text(face).size(18)).height(28).on_left_click(Message::NewGame));
+    top_row = top_row.push(Space::with_width(iced::Length::Fill));
+    top_row = top_row.push(iced::widget::Text::new("No clock").size(20));
     column = column.push(top_row);
     for y in 0..CELL_ROWS {
       let mut row = Row::new().spacing(1);
       for x in 0..CELL_COLUMNS {
         let cell: Element<_> = match self.board[x][y] {
           Cell {status: CellStatus::Flagged, .. } => button("🚩", 14).on_right_click(Message::Flag(x, y)).padding(2).into(),
-          Cell {status: CellStatus::Covered, .. } => {
-            if self.status == GameStatus::Playing {
-              button("", 16).on_press(Message::Reveal(x, y)).on_right_click(Message::Flag(x, y)).into()                
-            } else if self.status == GameStatus::Lost && self.board[x][y].value == CellValue::Mined {
+          Cell {status: CellStatus::Covered, .. } => match self.status {
+            GameStatus::Playing | GameStatus::Pressing => {
+              button("", 16).on_press(Message::Pressing(true)).on_release(Message::Pressing(false)).on_left_click(Message::Reveal(x, y)).on_right_click(Message::Flag(x, y)).into()                
+            },
+            GameStatus::Won | GameStatus::Lost => if self.board[x][y].value == CellValue::Mined {
               button("💣", 16).padding(0).into()
             } else {
               button("", 16).into()  //Removing on_press disables the buttons
-            }
+            },
           },
           Cell {status: CellStatus::Revealed, value: CellValue::Mined} => text("💣").into(),
           Cell {status: CellStatus::Revealed, value: CellValue::Number(0)} => text("").into(),

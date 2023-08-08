@@ -6,7 +6,6 @@ use iced::advanced::layout;
 use iced::advanced::mouse;
 use iced::advanced::overlay;
 use iced::advanced::renderer;
-use iced::touch;
 use iced::advanced::widget::tree::{self, Tree};
 use iced::advanced::widget::Operation;
 use iced::{
@@ -25,8 +24,10 @@ where
     Renderer::Theme: StyleSheet,
 {
     content: Element<'a, Message, Renderer>,
-    on_press: Option<Message>,
+    on_left_click: Option<Message>,
     on_right_click: Option<Message>,
+    on_press: Option<Message>,
+    on_release: Option<Message>,
     width: Length,
     height: Length,
     padding: Padding,
@@ -42,8 +43,10 @@ where
     pub fn new(content: impl Into<Element<'a, Message, Renderer>>) -> Self {
         Button {
             content: content.into(),
-            on_press: None,
+            on_left_click: None,
             on_right_click: None,
+            on_press: None,
+            on_release: None,
             width: Length::Shrink,
             height: Length::Shrink,
             padding: Padding::new(5.0),
@@ -69,11 +72,11 @@ where
         self
     }
 
-    /// Sets the message that will be produced when the [`Button`] is pressed.
+    /// Sets the message that will be produced when the [`Button`] is left clicked.
     ///
-    /// Unless `on_press` is called, the [`Button`] will be disabled.
-    pub fn on_press(mut self, on_press: Message) -> Self {
-        self.on_press = Some(on_press);
+    /// Unless `on_left_click` is called, the [`Button`] will be disabled.
+    pub fn on_left_click(mut self, on_left_click: Message) -> Self {
+        self.on_left_click = Some(on_left_click);
         self
     }
 
@@ -82,6 +85,19 @@ where
         self.on_right_click = Some(on_right_click);
         self
     }
+
+    /// Sets the message that will be produced when the [`Button`] is pressed. (With any button)
+    pub fn on_press(mut self, on_press: Message) -> Self {
+        self.on_press = Some(on_press);
+        self
+    }
+
+    /// Sets the message that will be produced when the [`Button`] is released. (With any button)
+    pub fn on_release(mut self, on_release: Message) -> Self {
+        self.on_release = Some(on_release);
+        self
+    }
+
 
     /// Sets the style variant of this [`Button`].
     pub fn style(
@@ -182,7 +198,7 @@ where
             return event::Status::Captured;
         }
 
-        update(event, layout, cursor, shell, &self.on_press, &self.on_right_click, || {
+        update(event, layout, cursor, shell, &self.on_left_click, &self.on_right_click, &self.on_press, &self.on_release, || {
             tree.state.downcast_mut::<State>()
         })
     }
@@ -204,7 +220,7 @@ where
             renderer,
             bounds,
             cursor,
-            self.on_press.is_some(),
+            self.on_left_click.is_some(),
             theme,
             &self.style,
             || tree.state.downcast_ref::<State>(),
@@ -231,7 +247,7 @@ where
         _viewport: &Rectangle,
         _renderer: &Renderer,
     ) -> mouse::Interaction {
-        mouse_interaction(layout, cursor, self.on_press.is_some())
+        mouse_interaction(layout, cursor, self.on_left_click.is_some())
     }
 
     fn overlay<'b>(
@@ -264,7 +280,6 @@ where
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct State {
     is_pressed: bool,
-    is_right_clicked: bool,
 }
 
 impl State {
@@ -277,60 +292,51 @@ impl State {
 /// Processes the given [`Event`] and updates the [`State`] of a [`Button`]
 /// accordingly.
 pub fn update<'a, Message: Clone>(
-    event: Event,
-    layout: Layout<'_>,
-    cursor: mouse::Cursor,
-    shell: &mut Shell<'_, Message>,
-    on_press: &Option<Message>,
-    on_right_click: &Option<Message>,
-    state: impl FnOnce() -> &'a mut State,
+  event: Event,
+  layout: Layout<'_>,
+  cursor: mouse::Cursor,
+  shell: &mut Shell<'_, Message>,
+  on_left_click: &Option<Message>,
+  on_right_click: &Option<Message>,
+  on_press: &Option<Message>,
+  on_release: &Option<Message>,
+  state: impl FnOnce() -> &'a mut State,
 ) -> event::Status {
-    match event {
-        Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
-        | Event::Touch(touch::Event::FingerPressed { .. }) => {
-            if on_press.is_some() && cursor.is_over(layout.bounds()) {
-                state().is_pressed = true;
-                return event::Status::Captured;
-            }
-        },
-        Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left))
-        | Event::Touch(touch::Event::FingerLifted { .. }) => {
-            if let Some(on_press) = on_press.clone() {
-                let state = state();
-                if state.is_pressed {
-                    state.is_pressed = false;
-                    if cursor.is_over(layout.bounds()) {
-                        shell.publish(on_press);
-                    }
-                    return event::Status::Captured;
-                }
-            }
-        },
-        Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) => {
-            if on_right_click.is_some() && cursor.is_over(layout.bounds()) {
-                state().is_right_clicked = true;
-                return event::Status::Captured;
-            }
-        },
-        Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Right)) => {
-            if let Some(on_right_click) = on_right_click.clone() {
-                let state = state();
-                if state.is_right_clicked {
-                    state.is_right_clicked = false;
-                    if cursor.is_over(layout.bounds()) {
-                        shell.publish(on_right_click);
-                    }
-                    return event::Status::Captured;
-                }
-            }
-        },
-        Event::Touch(touch::Event::FingerLost { .. }) => {
-            state().is_pressed = false;
-        },
-        _ => {}
-    }
+  match event {
+    Event::Mouse(mouse::Event::ButtonPressed(_)) => {
+      if cursor.is_over(layout.bounds()) {
+        state().is_pressed = true;
+        if let Some(on_press) = on_press.clone() {
+          shell.publish(on_press);
+          return event::Status::Captured;
+        }
+      }
+    },
+    Event::Mouse(mouse::Event::ButtonReleased(button)) => {
+      let state = state();
+      if !state.is_pressed {
+        return event::Status::Ignored;
+      }
+      state.is_pressed = false;
+      if let Some(on_release) = on_release.clone() {
+        shell.publish(on_release);
+      }
+      let on_click = match button {
+        mouse::Button::Left => on_left_click,
+        mouse::Button::Right => on_right_click,
+        _ => return event::Status::Captured,
+      };
+      if let Some(on_click) = on_click.clone() {
+        if cursor.is_over(layout.bounds()) {
+          shell.publish(on_click);
+        }
+      }
+      return event::Status::Captured;
+    },
+    _ => {}
+  }
 
-    event::Status::Ignored
+  event::Status::Ignored
 }
 
 /// Draws a [`Button`].
