@@ -1,10 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod abutton;
-use abutton::Button;
+mod cell;
+use cell::CellWidget;
 
 use iced::widget::{Column, Row, Space};
-use iced::{alignment::Horizontal, Element, Sandbox, Settings};
+use iced::{alignment, Element, Sandbox, Settings};
 
 const CELL_ROWS: usize = 16;
 const CELL_COLUMNS: usize = 30;
@@ -13,7 +13,7 @@ const MINE_COUNT: usize = 99;
 pub fn main() -> iced::Result {
   let settings = Settings {
     window: iced::window::Settings {
-      size: (21 * CELL_COLUMNS as u32, 32 + 21 * CELL_ROWS as u32),
+      size: (21 * CELL_COLUMNS as u32, 33 + 21 * CELL_ROWS as u32),
       resizable: false,
       ..Default::default()
     },
@@ -159,12 +159,8 @@ fn text_color(number: u8) -> iced::Color {
   }
 }
 
-fn button<Message>(text: &str, text_size: u16) -> Button<Message> {
-  Button::new(iced::widget::Text::new(text).shaping(iced::widget::text::Shaping::Advanced).size(text_size)).width(20).height(20)
-}
-
 fn text<'a>(text: impl Into<std::borrow::Cow<'a, str>>) -> iced::widget::Text<'a> {
-  iced::widget::Text::new(text).shaping(iced::widget::text::Shaping::Advanced).size(16).width(20).height(20).horizontal_alignment(Horizontal::Center)
+  iced::widget::Text::new(text).shaping(iced::widget::text::Shaping::Advanced).size(16).width(20).height(20).horizontal_alignment(alignment::Horizontal::Center)
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -253,7 +249,7 @@ impl Sandbox for Game {
     let mut top_row = Row::new().padding(2);
     top_row = top_row.push(iced::widget::Text::new(format!("Mines: {}", MINE_COUNT - self.flag_count)).size(20));
     top_row = top_row.push(Space::with_width(iced::Length::Fill));
-    top_row = top_row.push(Button::new(text(face).size(18)).height(28).on_left_click(Message::NewGame));
+    top_row = top_row.push(iced::widget::Button::new(text(face).size(18)).height(28).on_press(Message::NewGame));
     top_row = top_row.push(Space::with_width(iced::Length::Fill));
     top_row = top_row.push(iced::widget::Text::new("No clock").size(20));
     column = column.push(top_row);
@@ -261,15 +257,15 @@ impl Sandbox for Game {
       let mut row = Row::new().spacing(1);
       for x in 0..CELL_COLUMNS {
         let cell: Element<_> = match self.board[x][y] {
-          Cell {status: CellStatus::Flagged, .. } => button("🚩", 14).on_right_click(Message::Flag(x, y)).padding(2).into(),
+          Cell {status: CellStatus::Flagged, .. } => CellWidget::new("🚩").size(14).padding(2).on_right_click(Message::Flag(x, y)).into(),
           Cell {status: CellStatus::Covered, .. } => match self.status {
             GameStatus::Playing | GameStatus::Pressing => {
-              button("", 16).on_press(Message::Pressing(true)).on_release(Message::Pressing(false)).on_left_click(Message::Reveal(x, y)).on_right_click(Message::Flag(x, y)).into()                
+              CellWidget::new("").on_press(Message::Pressing(true)).on_release(Message::Pressing(false)).on_left_click(Message::Reveal(x, y)).on_right_click(Message::Flag(x, y)).into()                
             },
             GameStatus::Won | GameStatus::Lost => if self.board[x][y].value == CellValue::Mined {
-              button("💣", 16).padding(0).into()
+              CellWidget::new("💣").into()
             } else {
-              button("", 16).into()  //Removing on_press disables the buttons
+              CellWidget::new("").into()  //Removing on_press disables the buttons
             },
           },
           Cell {status: CellStatus::Revealed, value: CellValue::Mined} => text("💣").into(),
