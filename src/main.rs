@@ -117,8 +117,8 @@ impl Game {
       let x = cell.0;
       let y = cell.1;
 
-      //We can't be revealing flagged cells...
-      if self.board[x][y].status == CellStatus::Flagged {
+      //Only reveal cells which haven't been revealed. Else we will be counting too many.
+      if self.board[x][y].status != CellStatus::Covered {
         continue;
       }
 
@@ -136,11 +136,12 @@ impl Game {
         self.status = GameStatus::Won;
         return;
       }
+      println!("{}", self.revealed_count);
       
       //Clicked on a blank piece? Reveal all sides and corners.
       if self.board[x][y].value == CellValue::Number(0) {
         with_surrounding_cells(x, y, |new_x, new_y| {
-          if self.board[new_x][new_y].status != CellStatus::Revealed {
+          if self.board[new_x][new_y].status == CellStatus::Covered {
             reveal_vec.push((new_x, new_y));
           }
         });
