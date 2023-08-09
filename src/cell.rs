@@ -1,15 +1,12 @@
 //! Allow your users to perform actions by pressing a button.
 //!
 //! A [`CellWidget`] has some local [`State`].
-use iced::alignment;
-use iced::event;
-use iced::advanced::layout;
-use iced::advanced::mouse;
-use iced::advanced::renderer;
-use iced::advanced::widget::tree;
+use iced::{alignment, event};
+use iced::advanced::{layout, mouse, renderer, widget::tree};
 use iced::widget::button;
 use iced::widget::text as widget_text;
 use iced::advanced::text as advanced_text;
+use std::time;
 
 pub struct Cell<Message> {
   pub content: char,
@@ -82,15 +79,20 @@ where Message: Clone
       event::Event::Mouse(mouse::Event::ButtonReleased(_)) => {
         let state = tree.state.downcast_mut::<State>();
         
-        //If both buttons are pressed, then unpressing either one will trigger a "middle click" event.
-        let on_click = match (state.is_left_pressed, state.is_right_pressed) {
-          (true, false) => &self.on_left_click,
-          (false, true) => &self.on_right_click,
-          (true, true) => &self.on_middle_click,
-          (false, false) => return event::Status::Ignored,
+        let on_click = if state.is_left_pressed && state.previous_click_time.elapsed().as_millis() <= 300 {
+          //Double clicked
+          &self.on_middle_click
+        } else {
+          match (state.is_left_pressed, state.is_right_pressed) {
+            (true, false) => &self.on_left_click,
+            (false, true) => &self.on_right_click,
+            (true, true) => &self.on_middle_click,
+            (false, false) => return event::Status::Ignored,
+          }
         };
         state.is_left_pressed = false;
         state.is_right_pressed = false;
+        state.previous_click_time = time::Instant::now();
 
         if let Some(on_release) = &self.on_release {
           shell.publish(on_release.clone());
@@ -191,6 +193,7 @@ where Message: Clone + 'a
 pub struct State {
   is_left_pressed: bool,
   is_right_pressed: bool,
+  previous_click_time: time::Instant,
 }
 
 impl State {
@@ -198,7 +201,8 @@ impl State {
   pub fn new() -> State {
     State {
       is_left_pressed: false,
-      is_right_pressed: false
+      is_right_pressed: false,
+      previous_click_time: time::Instant::now(),  //Wish there were a way to initiate this to 0.
     }
   }
 }
