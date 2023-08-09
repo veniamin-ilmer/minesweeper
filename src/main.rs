@@ -1,25 +1,23 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod cell;
-use cell::CellWidget;
 
-use iced::widget;
-use iced::{Element, Sandbox, Settings};
+use iced::{theme, widget, window};
 
 const CELL_ROWS: usize = 16;
 const CELL_COLUMNS: usize = 30;
 const MINE_COUNT: usize = 99;
 
 pub fn main() -> iced::Result {
-  let settings = Settings {
-    window: iced::window::Settings {
+  let settings = iced::Settings {
+    window: window::Settings {
       size: (21 * CELL_COLUMNS as u32, 33 + 21 * CELL_ROWS as u32),
       resizable: false,
       ..Default::default()
     },
     ..Default::default()
   };
-  Game::run(settings)
+  <Game as iced::Sandbox>::run(settings)
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -167,7 +165,7 @@ enum Message {
   Flag(usize, usize),
 }
 
-impl Sandbox for Game {
+impl iced::Sandbox for Game {
   type Message = Message;
 
   fn new() -> Self {
@@ -189,6 +187,16 @@ impl Sandbox for Game {
       GameStatus::Lost => String::from("Minesweeper - You Lost"),
       _ => String::from("Minesweeper"),
     }
+  }
+  
+  fn theme(&self) -> theme::Theme {
+    theme::Theme::custom(theme::Palette {
+      background: iced::Color::from_rgb(0.9, 0.9, 0.9),
+      text: iced::Color::BLACK,
+      primary: iced::Color::from_rgb(0.36, 0.48, 0.88),
+      success: iced::Color::from_rgb(0.07, 0.4, 0.31),
+      danger: iced::Color::from_rgb(0.76, 0.26, 0.25),
+    })
   }
 
   fn update(&mut self, message: Message) {
@@ -234,7 +242,7 @@ impl Sandbox for Game {
     }
   }
 
-  fn view(&self) -> Element<Message> {
+  fn view(&self) -> iced::Element<Message> {
     let mut column = widget::Column::new().spacing(1);
     let face = match self.status {
       GameStatus::Playing => '😀',
@@ -245,11 +253,11 @@ impl Sandbox for Game {
     let mut top_row = widget::Row::new().padding(2);
     top_row = top_row.push(widget::Text::new(format!("Mines: {}", MINE_COUNT - self.flag_count)).size(20));
     top_row = top_row.push(widget::Space::with_width(iced::Length::Fill));
-    top_row = top_row.push(CellWidget {
+    top_row = top_row.push(cell::Cell {
       content: face,
       padding: [5,2].into(),
-      size: 18.0,
-      length: 28.0,
+      size: 18,
+      length: 28,
       on_left_click: Some(Message::NewGame),
       ..Default::default()
     });
@@ -259,10 +267,10 @@ impl Sandbox for Game {
     for y in 0..CELL_ROWS {
       let mut row = widget::Row::new().spacing(1);
       for x in 0..CELL_COLUMNS {
-        let cell: Element<_> = match self.board[x][y] {
-          Cell {status: CellStatus::Flagged, .. } => CellWidget {
+        let cell: iced::Element<_> = match self.board[x][y] {
+          Cell {status: CellStatus::Flagged, .. } => cell::Cell {
             content: '🚩',
-            size: 14.0,
+            size: 14,
             padding: 2.into(),
             on_right_click:
             Some(Message::Flag(x, y)),
@@ -270,7 +278,7 @@ impl Sandbox for Game {
           }.into(),
           Cell {status: CellStatus::Covered, .. } => match self.status {
             GameStatus::Playing | GameStatus::Pressing => {
-              CellWidget {
+              cell::Cell {
                 on_press: Some(Message::Pressing(true)),
                 on_release: Some(Message::Pressing(false)),
                 on_left_click: Some(Message::Reveal(x, y)),
@@ -279,17 +287,17 @@ impl Sandbox for Game {
               }.into()
             },
             GameStatus::Won | GameStatus::Lost => if self.board[x][y].value == CellValue::Mined {
-              CellWidget {content: '💣', ..Default::default()}.into()
+              cell::Cell {content: '💣', ..Default::default()}.into()
             } else {
-              CellWidget {..Default::default()}.into()  //Removing on_press disables the buttons
+              cell::Cell {..Default::default()}.into()  //Removing on_press disables the buttons
             },
           },
-          Cell {status: CellStatus::Revealed, value: CellValue::Mined} => CellWidget {content: '💣', revealed: true, ..Default::default()}.into(),
-          Cell {status: CellStatus::Revealed, value: CellValue::Number(0)} => CellWidget {revealed: true, ..Default::default()}.into(),
-          Cell {status: CellStatus::Revealed, value: CellValue::Number(number)} => CellWidget {
+          Cell {status: CellStatus::Revealed, value: CellValue::Mined} => cell::Cell {content: '💣', revealed: true, ..Default::default()}.into(),
+          Cell {status: CellStatus::Revealed, value: CellValue::Number(0)} => cell::Cell {revealed: true, ..Default::default()}.into(),
+          Cell {status: CellStatus::Revealed, value: CellValue::Number(number)} => cell::Cell {
             revealed: true,
             content: (number + b'0') as char,
-            size: 20.0,
+            size: 20,
             padding: [0,4].into(),
             color: text_color(number),
             ..Default::default()}.into(),

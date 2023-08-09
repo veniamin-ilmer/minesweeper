@@ -11,10 +11,10 @@ use iced::widget::button;
 use iced::widget::text as widget_text;
 use iced::advanced::text as advanced_text;
 
-pub struct CellWidget<Message> {
+pub struct Cell<Message> {
   pub content: char,
-  pub size: f32,
-  pub length: f32,
+  pub size: u8,
+  pub length: u8,
   pub padding: iced::Padding,
   pub revealed: bool,
   pub color: iced::Color,
@@ -24,12 +24,12 @@ pub struct CellWidget<Message> {
   pub on_release: Option<Message>,
 }
 
-impl Default for CellWidget<crate::Message> {
+impl Default for Cell<crate::Message> {
   fn default() -> Self {
-    CellWidget {
+    Cell {
       content: ' ',
-      size: 16.0,
-      length: 20.0,
+      size: 16,
+      length: 20,
       padding: iced::Padding::ZERO,
       color: iced::Color::WHITE,
       revealed: false,
@@ -38,7 +38,7 @@ impl Default for CellWidget<crate::Message> {
   }
 }
 
-impl<Message> iced::advanced::Widget<Message, iced::Renderer> for CellWidget<Message>
+impl<Message> iced::advanced::Widget<Message, iced::Renderer> for Cell<Message>
 where Message: Clone
 {
   fn state(&self) -> tree::State {
@@ -46,15 +46,15 @@ where Message: Clone
   }
     
   fn width(&self) -> iced::Length {
-    iced::Length::Fixed(self.length)
+    iced::Length::Fixed(self.length as f32)
   }
 
   fn height(&self) -> iced::Length {
-    iced::Length::Fixed(self.length)
+    iced::Length::Fixed(self.length as f32)
   }
 
   fn layout(&self, _renderer: &iced::Renderer, limits: &layout::Limits) -> layout::Node {
-    let limits = limits.width(iced::Length::Fixed(self.length)).height(iced::Length::Fixed(self.length));
+    let limits = limits.width(iced::Length::Fixed(self.length as f32)).height(iced::Length::Fixed(self.length as f32));
     layout::Node::new(limits.fill())
   }
 
@@ -128,6 +128,16 @@ where Message: Clone
           styling.background.unwrap_or(iced::Background::Color(iced::Color::TRANSPARENT)),
         );
       }
+    } else if self.revealed {
+      iced::advanced::Renderer::fill_quad(renderer,
+        renderer::Quad {
+          bounds,
+          border_radius: 0.0.into(),
+          border_width: 0.0.into(),
+          border_color: iced::Color::WHITE,
+        },
+        iced::Background::Color(iced::Color::WHITE)
+      );
     }
 
     let x = bounds.x + self.padding.left;
@@ -135,7 +145,7 @@ where Message: Clone
 
     advanced_text::Renderer::fill_text(renderer, iced::advanced::Text {
         content: &self.content.to_string(),
-        size: self.size,
+        size: self.size as f32,
         line_height: widget_text::LineHeight::default(),
         bounds: iced::Rectangle { x, y, ..bounds },
         color: self.color,
@@ -159,16 +169,16 @@ where Message: Clone
 
 }
 
-impl<'a, Message> From<CellWidget<Message>> for iced::Element<'a, Message>
+impl<'a, Message> From<Cell<Message>> for iced::Element<'a, Message>
 where Message: Clone + 'a
 {
-  fn from(button: CellWidget<Message>) -> Self {
+  fn from(button: Cell<Message>) -> Self {
     Self::new(button)
   }
 }
 
-/// The local state of a [`CellWidget`].
-#[derive(Clone, PartialEq, Eq)]
+/// The local state of a [`Cell`].
+#[derive(Clone)]
 pub struct State {
   is_pressed: bool,
 }
