@@ -136,7 +136,6 @@ impl Game {
         self.status = GameStatus::Won;
         return;
       }
-      println!("{}", self.revealed_count);
       
       //Clicked on a blank piece? Reveal all sides and corners.
       if self.board[x][y].value == CellValue::Number(0) {
