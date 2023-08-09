@@ -7,63 +7,59 @@ use iced::advanced::layout;
 use iced::advanced::mouse;
 use iced::advanced::renderer;
 use iced::advanced::widget::tree;
-use iced::widget::text;
-use iced::widget::button::{StyleSheet};
+use iced::widget::button;
+use iced::widget::text as widget_text;
+use iced::advanced::text as advanced_text;
 
-pub struct CellWidget<Message, Renderer = iced::Renderer>
-where Renderer: iced::advanced::Renderer, Renderer::Theme: StyleSheet {
-  pub content: String,
+pub struct CellWidget<Message> {
+  pub content: char,
   pub size: f32,
-  pub width: iced::Length,
-  pub height: iced::Length,
+  pub length: f32,
   pub padding: iced::Padding,
-  pub style: <Renderer::Theme as StyleSheet>::Style,
+  pub revealed: bool,
+  pub color: iced::Color,
   pub on_left_click: Option<Message>,
   pub on_right_click: Option<Message>,
   pub on_press: Option<Message>,
   pub on_release: Option<Message>,
 }
 
-impl Default for CellWidget<crate::Message, iced::Renderer> {
+impl Default for CellWidget<crate::Message> {
   fn default() -> Self {
     CellWidget {
-      content: String::new(),
+      content: ' ',
       size: 16.0,
-      width: iced::Length::Fixed(20.0),
-      height: iced::Length::Fixed(20.0),
+      length: 20.0,
       padding: iced::Padding::ZERO,
-      style: Default::default(),
+      color: iced::Color::WHITE,
+      revealed: false,
       on_left_click: None, on_right_click: None, on_press: None, on_release: None,
     }
   }
 }
 
-impl<Message, Renderer> iced::advanced::Widget<Message, Renderer> for CellWidget<Message, Renderer>
-where
-  Message: Clone,
-  Renderer: iced::advanced::text::Renderer,
-  Renderer::Theme: StyleSheet,
+impl<Message> iced::advanced::Widget<Message, iced::Renderer> for CellWidget<Message>
+where Message: Clone
 {
-
   fn state(&self) -> tree::State {
     tree::State::new(State::new())
   }
     
   fn width(&self) -> iced::Length {
-    self.width
+    iced::Length::Fixed(self.length)
   }
 
   fn height(&self) -> iced::Length {
-    self.height
+    iced::Length::Fixed(self.length)
   }
 
-  fn layout(&self, _renderer: &Renderer, limits: &layout::Limits) -> layout::Node {
-    let limits = limits.width(self.width).height(self.height);
+  fn layout(&self, _renderer: &iced::Renderer, limits: &layout::Limits) -> layout::Node {
+    let limits = limits.width(iced::Length::Fixed(self.length)).height(iced::Length::Fixed(self.length));
     layout::Node::new(limits.fill())
   }
 
   fn on_event(&mut self, tree: &mut tree::Tree, event: event::Event, layout: iced::advanced::Layout<'_>, cursor: mouse::Cursor,
-    _renderer: &Renderer, _clipboard: &mut dyn iced::advanced::Clipboard, shell: &mut iced::advanced::Shell<'_, Message>, _viewport: &iced::Rectangle,
+    _renderer: &iced::Renderer, _clipboard: &mut dyn iced::advanced::Clipboard, shell: &mut iced::advanced::Shell<'_, Message>, _viewport: &iced::Rectangle,
   ) -> event::Status {
     
     match event {
@@ -104,52 +100,54 @@ where
     
   }
 
-  fn draw(&self, tree: &tree::Tree, renderer: &mut Renderer, theme: &Renderer::Theme, _style: &renderer::Style, layout: iced::advanced::Layout<'_>, cursor: mouse::Cursor,_viewport: &iced::Rectangle) {
+  fn draw(&self, tree: &tree::Tree, renderer: &mut iced::Renderer, theme: &iced::Theme, _style: &renderer::Style, layout: iced::advanced::Layout<'_>, cursor: mouse::Cursor,_viewport: &iced::Rectangle) {
     let bounds = layout.bounds();
+    
+    if !self.revealed {
+      let style: iced::theme::Button = Default::default();
 
-    let styling = if !self.on_left_click.is_some() {
-      theme.disabled(&self.style)
-    } else if cursor.is_over(bounds) {
-      let state = tree.state.downcast_ref::<State>();
-      if state.is_pressed {
-        theme.pressed(&self.style)
+      let styling = if !self.on_left_click.is_some() {
+        button::StyleSheet::disabled(theme, &style)
+      } else if cursor.is_over(bounds) {
+        match tree.state.downcast_ref::<State>().is_pressed {
+          true => button::StyleSheet::pressed(theme, &style),
+          false => button::StyleSheet::hovered(theme, &style),
+        }
       } else {
-        theme.hovered(&self.style)
-      }
-    } else {
-      theme.active(&self.style)
-    };
+        button::StyleSheet::active(theme, &style)
+      };
 
-    if styling.background.is_some() || styling.border_width > 0.0 {
-      renderer.fill_quad(
-        renderer::Quad {
-          bounds,
-          border_radius: styling.border_radius,
-          border_width: styling.border_width,
-          border_color: styling.border_color,
-        },
-        styling.background.unwrap_or(iced::Background::Color(iced::Color::TRANSPARENT)),
-      );
+      if styling.background.is_some() || styling.border_width > 0.0 {
+        iced::advanced::Renderer::fill_quad(renderer,
+          renderer::Quad {
+            bounds,
+            border_radius: styling.border_radius,
+            border_width: styling.border_width,
+            border_color: styling.border_color,
+          },
+          styling.background.unwrap_or(iced::Background::Color(iced::Color::TRANSPARENT)),
+        );
+      }
     }
 
     let x = bounds.x + self.padding.left;
-    let y = bounds.y + self.padding.right;
+    let y = bounds.y + self.padding.top;
 
-    renderer.fill_text(iced::advanced::Text {
-        content: &self.content,
+    advanced_text::Renderer::fill_text(renderer, iced::advanced::Text {
+        content: &self.content.to_string(),
         size: self.size,
-        line_height: text::LineHeight::default(),
+        line_height: widget_text::LineHeight::default(),
         bounds: iced::Rectangle { x, y, ..bounds },
-        color: styling.text_color,
-        font: renderer.default_font(),
+        color: self.color,
+        font: iced::Font::MONOSPACE,
         horizontal_alignment: alignment::Horizontal::Left,
         vertical_alignment: alignment::Vertical::Top,
-        shaping: iced::widget::text::Shaping::Advanced,
+        shaping: widget_text::Shaping::Advanced,
     });
     
   }
 
-  fn mouse_interaction(&self, _tree: &tree::Tree, layout: iced::advanced::Layout<'_>, cursor: mouse::Cursor, _viewport: &iced::Rectangle, _renderer: &Renderer) -> mouse::Interaction {
+  fn mouse_interaction(&self, _tree: &tree::Tree, layout: iced::advanced::Layout<'_>, cursor: mouse::Cursor, _viewport: &iced::Rectangle, _renderer: &iced::Renderer) -> mouse::Interaction {
     let is_mouse_over = cursor.is_over(layout.bounds());
     let is_enabled = self.on_left_click.is_some();
     if is_mouse_over && is_enabled {
@@ -161,20 +159,16 @@ where
 
 }
 
-impl<'a, Message, Renderer> From<CellWidget<Message, Renderer>>
-  for iced::Element<'a, Message, Renderer>
-where
-  Message: Clone + 'a,
-  Renderer: iced::advanced::text::Renderer + 'a,
-  Renderer::Theme: StyleSheet,
+impl<'a, Message> From<CellWidget<Message>> for iced::Element<'a, Message>
+where Message: Clone + 'a
 {
-  fn from(button: CellWidget<Message, Renderer>) -> Self {
+  fn from(button: CellWidget<Message>) -> Self {
     Self::new(button)
   }
 }
 
 /// The local state of a [`CellWidget`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct State {
   is_pressed: bool,
 }
@@ -182,6 +176,6 @@ pub struct State {
 impl State {
   /// Creates a new [`State`].
   pub fn new() -> State {
-    State::default()
+    State { is_pressed: false }
   }
 }
