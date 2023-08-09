@@ -124,6 +124,12 @@ impl Game {
 
       self.board[x][y].status = CellStatus::Revealed;
 
+      if self.board[x][y].value == CellValue::Mined {
+        self.board[x][y].status = CellStatus::Revealed;
+        self.status = GameStatus::Lost;
+        return;
+      }
+
       self.revealed_count += 1;
       if self.revealed_count >= CELL_ROWS * CELL_COLUMNS - MINE_COUNT {
         //All numbers were revealed
@@ -140,6 +146,32 @@ impl Game {
         });
       }
     }
+  }
+  
+  fn reveal_special(&mut self, x: usize, y: usize) {
+    //This feature should only work if the current cell is already revealed. Otherwise the user is cheating.
+    if self.board[x][y].status != CellStatus::Revealed {
+      return;
+    }
+
+    if let CellValue::Number(cell_number) = self.board[x][y].value {
+      let mut flag_count = 0;
+      with_surrounding_cells(x, y, |new_x, new_y| {
+        if self.board[new_x][new_y].status == CellStatus::Flagged {
+          flag_count += 1;
+        }
+      });
+      
+      //Flag count matches the cell number. Reveal the neighbors.
+      if flag_count == cell_number {
+        with_surrounding_cells(x, y, |new_x, new_y| {
+          if self.board[new_x][new_y].status == CellStatus::Covered {
+            self.reveal_multiple(new_x, new_y);
+          }
+        })
+      }
+    }
+
   }
 }
 
@@ -162,6 +194,7 @@ enum Message {
   NewGame,
   Pressing(bool),
   Reveal(usize, usize),
+  SpecialReveal(usize, usize),
   Flag(usize, usize),
 }
 
@@ -205,17 +238,10 @@ impl iced::Sandbox for Game {
       Message::Pressing(true) => self.status = GameStatus::Pressing,
       Message::Pressing(false) => self.status = GameStatus::Playing,
       Message::Reveal(x, y) => {
-        if self.status != GameStatus::Playing || self.board[x][y].status != CellStatus::Covered {
-          return;
-        }
-
-        if self.board[x][y].value == CellValue::Mined {
-          self.board[x][y].status = CellStatus::Revealed;
-          self.status = GameStatus::Lost;
-          return;
-        }
-        
         self.reveal_multiple(x, y);
+      },
+      Message::SpecialReveal(x, y) => {
+        self.reveal_special(x, y);
       },
       Message::Flag(x, y) => {
         if self.status != GameStatus::Playing {
@@ -272,8 +298,7 @@ impl iced::Sandbox for Game {
             content: '🚩',
             size: 14,
             padding: 2.into(),
-            on_right_click:
-            Some(Message::Flag(x, y)),
+            on_right_click: Some(Message::Flag(x, y)),
             ..Default::default()
           }.into(),
           Cell {status: CellStatus::Covered, .. } => match self.status {
@@ -300,6 +325,9 @@ impl iced::Sandbox for Game {
             size: 20,
             padding: [0,4].into(),
             color: text_color(number),
+            on_press: Some(Message::Pressing(true)),
+            on_release: Some(Message::Pressing(false)),
+            on_middle_click: Some(Message::SpecialReveal(x, y)),
             ..Default::default()}.into(),
         };
         row = row.push(cell);

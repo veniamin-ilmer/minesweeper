@@ -19,6 +19,7 @@ pub struct Cell<Message> {
   pub revealed: bool,
   pub color: iced::Color,
   pub on_left_click: Option<Message>,
+  pub on_middle_click: Option<Message>,
   pub on_right_click: Option<Message>,
   pub on_press: Option<Message>,
   pub on_release: Option<Message>,
@@ -33,7 +34,7 @@ impl Default for Cell<crate::Message> {
       padding: iced::Padding::ZERO,
       color: iced::Color::WHITE,
       revealed: false,
-      on_left_click: None, on_right_click: None, on_press: None, on_release: None,
+      on_left_click: None, on_middle_click: None, on_right_click: None, on_press: None, on_release: None,
     }
   }
 }
@@ -63,10 +64,14 @@ where Message: Clone
   ) -> event::Status {
     
     match event {
-      event::Event::Mouse(mouse::Event::ButtonPressed(_)) => {
+      event::Event::Mouse(mouse::Event::ButtonPressed(button)) => {
         if cursor.is_over(layout.bounds()) {
           let state = tree.state.downcast_mut::<State>();
-          state.is_pressed = true;
+          match button {
+            mouse::Button::Left => state.is_left_pressed = true,
+            mouse::Button::Right => state.is_right_pressed = true,
+            _ => {state.is_left_pressed = true; state.is_right_pressed = true},
+          };
           if let Some(on_press) = &self.on_press {
             shell.publish(on_press.clone());
             return event::Status::Captured;
@@ -74,20 +79,22 @@ where Message: Clone
         }
         event::Status::Ignored
       },
-      event::Event::Mouse(mouse::Event::ButtonReleased(button)) => {
+      event::Event::Mouse(mouse::Event::ButtonReleased(_)) => {
         let state = tree.state.downcast_mut::<State>();
-        if !state.is_pressed {
-          return event::Status::Ignored;
-        }
-        state.is_pressed = false;
+        
+        //If both buttons are pressed, then unpressing either one will trigger a "middle click" event.
+        let on_click = match (state.is_left_pressed, state.is_right_pressed) {
+          (true, false) => &self.on_left_click,
+          (false, true) => &self.on_right_click,
+          (true, true) => &self.on_middle_click,
+          (false, false) => return event::Status::Ignored,
+        };
+        state.is_left_pressed = false;
+        state.is_right_pressed = false;
+
         if let Some(on_release) = &self.on_release {
           shell.publish(on_release.clone());
         }
-        let on_click = match button {
-          mouse::Button::Left => &self.on_left_click,
-          mouse::Button::Right => &self.on_right_click,
-          _ => return event::Status::Captured,
-        };
         if let Some(on_click) = on_click.clone() {
           if cursor.is_over(layout.bounds()) {
             shell.publish(on_click);
@@ -109,7 +116,8 @@ where Message: Clone
       let styling = if !self.on_left_click.is_some() {
         button::StyleSheet::disabled(theme, &style)
       } else if cursor.is_over(bounds) {
-        match tree.state.downcast_ref::<State>().is_pressed {
+        let state = tree.state.downcast_ref::<State>();
+        match state.is_left_pressed || state.is_right_pressed {
           true => button::StyleSheet::pressed(theme, &style),
           false => button::StyleSheet::hovered(theme, &style),
         }
@@ -140,14 +148,15 @@ where Message: Clone
       );
     }
 
-    let x = bounds.x + self.padding.left;
-    let y = bounds.y + self.padding.top;
-
     advanced_text::Renderer::fill_text(renderer, iced::advanced::Text {
         content: &self.content.to_string(),
         size: self.size as f32,
         line_height: widget_text::LineHeight::default(),
-        bounds: iced::Rectangle { x, y, ..bounds },
+        bounds: iced::Rectangle {
+          x: bounds.x + self.padding.left, 
+          y: bounds.y + self.padding.top,
+          ..bounds
+        },
         color: self.color,
         font: iced::Font::MONOSPACE,
         horizontal_alignment: alignment::Horizontal::Left,
@@ -177,15 +186,19 @@ where Message: Clone + 'a
   }
 }
 
-/// The local state of a [`Cell`].
+/// For middle press, both left and right buttons get set to true
 #[derive(Clone)]
 pub struct State {
-  is_pressed: bool,
+  is_left_pressed: bool,
+  is_right_pressed: bool,
 }
 
 impl State {
   /// Creates a new [`State`].
   pub fn new() -> State {
-    State { is_pressed: false }
+    State {
+      is_left_pressed: false,
+      is_right_pressed: false
+    }
   }
 }
