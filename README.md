@@ -14,8 +14,8 @@ Features:
 * Clicking a blank space recusively opens up the sides and corners.
 * Detects if you won or lost the game, lets you restart the game.
 * Right clicking a cell flags a bomb. There is a bomb counter.
+* Middle click / double click reveals neighboring cells.
 
 Missing Features:
 
-* No double clicking detection, so you can't reveal neighboring cells this way.
 * No clock
